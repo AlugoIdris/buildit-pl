@@ -42,8 +42,8 @@ def ask(chain_tuple, question, model):
     # Get the answer
     answer = chain.invoke(question)
     
-    # Get source documents separately
-    source_docs = retriever.get_relevant_documents(question)
+    # Get source documents separately using invoke
+    source_docs = retriever.invoke(question)
     sources = list({doc.metadata.get("source", "Unknown") for doc in source_docs})
     
     input_est = len(question) // 4
