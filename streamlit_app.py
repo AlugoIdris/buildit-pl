@@ -5,8 +5,9 @@ sys.path.insert(0, os.path.dirname(__file__))
 from rag.pipeline import is_complex_query, ask
 from ingestion.loader import load_vector_store
 from langchain_openai import ChatOpenAI
-from langchain.chains import RetrievalQA
-from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
 from rag.prompts import SYSTEM_PROMPT, USER_TEMPLATE
 from utils.cost_tracker import get_total_cost
 from utils.session_manager import get_session_id, load_history, save_message, clear_session
@@ -17,25 +18,35 @@ import config
 
 st.set_page_config(page_title="BuildIt PL", page_icon="🏗️", layout="centered")
 
-# ── FIX 1: Cache the vector store — loaded once, reused forever ─────────────
+# ── Cache the vector store and chain ─────────────────────────────────────────
 @st.cache_resource
 def get_retriever():
     vs = load_vector_store()
     return vs.as_retriever(search_type="similarity", search_kwargs={"k": config.TOP_K_RESULTS})
+
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
 
 @st.cache_resource
 def get_chain(premium: bool):
     retriever = get_retriever()
     model = config.LLM_MODEL_PREMIUM if premium else config.LLM_MODEL_DEFAULT
     llm = ChatOpenAI(model=model, openai_api_key=config.OPENAI_API_KEY, temperature=0.2)
+    
     prompt = ChatPromptTemplate.from_messages([
-        SystemMessagePromptTemplate.from_template(SYSTEM_PROMPT),
-        HumanMessagePromptTemplate.from_template(USER_TEMPLATE)
+        ("system", SYSTEM_PROMPT),
+        ("human", USER_TEMPLATE)
     ])
-    return RetrievalQA.from_chain_type(
-        llm=llm, retriever=retriever, chain_type="stuff",
-        chain_type_kwargs={"prompt": prompt}, return_source_documents=True
-    ), model
+    
+    # Modern LCEL chain
+    chain = (
+        {"context": retriever | format_docs, "question": RunnablePassthrough()}
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+    
+    return (chain, retriever, model)
 
 # ── Header ─────────────────────────────────────────────────────────────────
 col1, col2 = st.columns([4, 1])
@@ -110,8 +121,8 @@ if st.session_state.active_tab == "chat":
             premium     = is_complex_query(user_input)
             model_label = "gpt-4o" if premium else "gpt-4o-mini"
             with st.spinner(f"[{model_label}] Checking Polish construction law..."):
-                chain, model = get_chain(premium)
-                response     = ask(chain, user_input, model)
+                chain_tuple = get_chain(premium)
+                response     = ask(chain_tuple, user_input, chain_tuple[2])
                 answer       = response["answer"]
 
                 st.markdown(answer)
