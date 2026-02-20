@@ -60,8 +60,9 @@ if user_input:
         premium      = is_complex_query(user_input)
         model_label  = "gpt-4o" if premium else "gpt-4o-mini"
         with st.spinner(f"Checking Polish construction law... [{model_label}]"):
-            chain, model = build_rag_chain(premium=premium)
-            response     = ask(chain, user_input, model)
+            chain_tuple = build_rag_chain(premium=premium)
+            _, _, model = chain_tuple
+            response     = ask(chain_tuple, user_input, model)
             answer       = response["answer"]
 
             st.markdown(answer)
