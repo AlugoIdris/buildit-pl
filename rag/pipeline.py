@@ -1,5 +1,5 @@
 from langchain_openai import ChatOpenAI
-from langchain.chains import RetrievalQA
+from langchain.chains.retrieval_qa.base import RetrievalQA
 from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from ingestion.loader import load_vector_store
 from rag.prompts import SYSTEM_PROMPT, USER_TEMPLATE
