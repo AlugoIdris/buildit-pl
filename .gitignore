@@ -1,0 +1,10 @@
+.env
+.streamlit/secrets.toml
+# chroma_store/ is committed to repo for fast Streamlit Cloud startup
+logs/
+__pycache__/
+*.pyc
+.DS_Store
+*.egg-info/
+dist/
+build/
